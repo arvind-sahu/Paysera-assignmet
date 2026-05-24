@@ -1,0 +1,35 @@
+monolog:
+    channels: ['transfer', 'security']
+    handlers:
+        main:
+            type: stream
+            path: '%kernel.logs_dir%/%kernel.environment%.log'
+            level: debug
+            channels: ['!event']
+        transfer:
+            type: stream
+            path: '%kernel.logs_dir%/transfer.log'
+            level: info
+            channels: ['transfer']
+        console:
+            type: console
+            process_psr_3_messages: false
+            channels: ['!event', '!doctrine', '!console']
+
+when@prod:
+    monolog:
+        handlers:
+            main:
+                level: info
+
+when@test:
+    monolog:
+        handlers:
+            main:
+                type: fingers_crossed
+                action_level: error
+                handler: nested
+            nested:
+                type: stream
+                path: '%kernel.logs_dir%/%kernel.environment%.log'
+                level: debug

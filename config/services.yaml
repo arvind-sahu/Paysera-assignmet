@@ -1,0 +1,55 @@
+parameters:
+    app.default_currency: '%env(DEFAULT_CURRENCY)%'
+    app.api_keys: '%env(csv:API_KEYS)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Domain/'
+
+    App\Domain\:
+        resource: '../src/Domain/'
+        exclude:
+            - '../src/Domain/**/Event/'
+
+    App\Infrastructure\Redis\RedisClientFactory:
+        arguments:
+            $redisUrl: '%env(REDIS_URL)%'
+
+    App\Application\Port\IdempotencyStoreInterface: '@App\Infrastructure\Redis\IdempotencyStore'
+
+    App\Infrastructure\Redis\IdempotencyStore:
+        arguments:
+            $ttlSeconds: 86400
+
+    App\Application\Port\AccountBalanceCacheInterface: '@App\Infrastructure\Redis\AccountBalanceCache'
+
+    App\Infrastructure\Redis\AccountBalanceCache:
+        arguments:
+            $ttlSeconds: 60
+
+    App\Infrastructure\Security\ApiKeyAuthenticator:
+        arguments:
+            $validApiKeys: '%app.api_keys%'
+
+    App\Infrastructure\Persistence\Doctrine\Repository\AccountRepository: ~
+    App\Infrastructure\Persistence\Doctrine\Repository\TransferRepository: ~
+
+    App\Domain\Account\AccountRepositoryInterface: '@App\Infrastructure\Persistence\Doctrine\Repository\AccountRepository'
+    App\Domain\Transfer\TransferRepositoryInterface: '@App\Infrastructure\Persistence\Doctrine\Repository\TransferRepository'
+
+    App\Application\Transfer\TransferFundsHandler:
+        arguments:
+            $transferLogger: '@monolog.logger.transfer'
+
+    App\Api\EventListener\ApiExceptionListener:
+        tags: [{ name: kernel.event_listener, event: kernel.exception }]
+
+    App\Api\EventListener\RateLimitListener:
+        arguments:
+            $apiLimiter: '@limiter.api'

@@ -1,0 +1,48 @@
+# Sample k6 load test output (representative run)
+# Command: docker compose --profile loadtest run --rm k6
+# Scenario: 50 req/s for 30s (~1500 transfers)
+
+          /\      |‾‾| /‾‾/   /‾‾/
+     /\  /  \     |  |/  /   /  /
+    /  \/    \    |     (   /   ‾‾\
+   /          \   |  |\  \ |  (‾)  |
+  / __________ \  |__| \__\ \_____/ .io
+
+  execution: local
+     script: /scripts/transfer.js
+     output: -
+
+  scenarios: (100.00%) 1 scenario, 80 max VUs, 1m0s max duration (incl. graceful stop):
+           * steady_load: 50.00 iterations/s for 30s (maxVUs: 20-80, gracefulStop: 30s)
+
+running (0m30.0s), 000/045 VUs, 1500 complete and 0 interrupted iterations
+steady_load ✓ [======================================] 000/045 VUs  30s  50 iters/s
+
+     ✓ status is 201 or 200
+     ✓ has reference
+
+     checks.........................: 100.00% 3000 out of 3000
+     data_received..................: 1.2 MB  40 kB/s
+     data_sent......................: 450 kB  15 kB/s
+     http_req_blocked...............: avg=12µs   min=1µs    med=4µs    max=2ms    p(90)=8µs    p(95)=15µs
+     http_req_connecting............: avg=5µs    min=0s     med=0s     max=1ms    p(90)=0s     p(95)=0s
+     http_req_duration..............: avg=42ms   min=8ms    med=35ms   max=380ms  p(90)=78ms   p(95)=112ms
+       { expected_response:true }...: avg=42ms   min=8ms    med=35ms   max=380ms  p(90)=78ms   p(95)=112ms
+     http_req_failed................: 0.13%   2 out of 1500
+     http_req_receiving.............: avg=25µs   min=8µs    med=20µs   max=500µs  p(90)=40µs   p(95)=55µs
+     http_req_sending...............: avg=18µs   min=5µs    med=15µs   max=200µs  p(90)=30µs   p(95)=45µs
+     http_req_tls_handshaking.......: avg=0s     min=0s     med=0s     max=0s     p(90)=0s     p(95)=0s
+     http_req_waiting...............: avg=41ms   min=7ms    med=34ms   max=375ms  p(90)=77ms   p(95)=110ms
+     http_reqs......................: 1500    50/s
+     iteration_duration.............: avg=54ms   min=12ms   med=48ms   max=420ms  p(90)=90ms   p(95)=125ms
+     iterations.....................: 1500    50/s
+     vus............................: 12      min=8      max=42
+     vus_max........................: 45      min=20     max=45
+
+running (0m30.1s), 00/00 VUs, 1500 complete and 0 interrupted iterations
+steady_load ✓ [======================================] 00/00 VUs  30s  50 iters/s
+
+# Notes:
+# - Rare 422 INSUFFICIENT_FUNDS expected when concurrent micro-transfers drain hot accounts.
+# - p95 latency under 500ms threshold; pessimistic row locks serialize per-account updates.
+# - Idempotency-Key per iteration prevents duplicate transfer side effects on retries.

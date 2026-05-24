@@ -1,0 +1,25 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    http_method_override: false
+    handle_all_throwables: true
+    php_errors:
+        log: true
+    serializer:
+        enabled: true
+    validation:
+        enabled: true
+    rate_limiter:
+        api:
+            policy: 'sliding_window'
+            limit: 120
+            interval: '1 minute'
+            cache_pool: cache.rate_limiter
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file
+        rate_limiter:
+            api:
+                cache_pool: cache.app

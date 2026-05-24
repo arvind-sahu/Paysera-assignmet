@@ -4,6 +4,21 @@ Production-oriented Symfony 7 API for transferring funds between accounts. Built
 
 **Time spent:** ~6 hours (architecture, TDD, Docker, load tests, documentation)
 
+## Requirement coverage checklist
+
+| Requirement | Status | Evidence |
+|-------------|--------|----------|
+| Latest PHP + Symfony | ✅ | PHP 8.3+ and Symfony 7.4 in `composer.json` |
+| MySQL + Redis for persistence/caching | ✅ | MySQL entities/repositories + Redis idempotency/cache/rate-limit |
+| Fund transfers between accounts | ✅ | `POST /api/v1/transfers` and `POST /api/v2/transfers` |
+| Reliability under load | ✅ | Redis rate limiting, idempotency replay, k6 load test script |
+| Transaction integrity | ✅ | Single DB transaction + `FOR UPDATE` row locks + deterministic lock order |
+| Modern PHP/Symfony practices | ✅ | Layered architecture (Domain/Application/Infrastructure/API), strict typing, DTO validation |
+| Comprehensive tests incl. integration | ✅ | Unit + integration suites in `tests/Unit` and `tests/Integration` |
+| Proper error handling and logging | ✅ | API exception listener + structured transfer logging |
+| Clear setup and usage docs | ✅ | This README + `docs/API.md` + `docs/ARCHITECTURE.md` |
+| Security considerations | ✅ | API key auth, validation, rate limiting, idempotency, no stack traces |
+
 ## Features
 
 | Area | Implementation |
@@ -17,8 +32,64 @@ Production-oriented Symfony 7 API for transferring funds between accounts. Built
 ## Quick start (Docker)
 
 ```bash
+cp .env.dist .env
 make setup          # up + composer + migrate + seed
 curl http://localhost:8080/health
+```
+
+## Full run guide (all steps)
+
+### Option A: Docker (recommended)
+
+#### 1) Prerequisites
+
+- Docker Desktop (with Compose v2)
+- `make` (or run compose commands directly)
+
+#### 2) Configure environment
+
+```bash
+cp .env.dist .env
+```
+
+#### 3) Start application stack
+
+```bash
+make setup
+```
+
+This runs:
+- `make up` (build + start php, mysql, redis)
+- `make install` (composer install in container)
+- `make migrate` (run DB migrations)
+- `make seed` (insert demo accounts)
+
+#### 4) Verify health
+
+```bash
+curl http://localhost:8080/health
+```
+
+Expected: HTTP `200` and DB/Redis status in response.
+
+#### 5) Run tests
+
+```bash
+make test
+make test-unit
+make test-integration
+```
+
+#### 6) Run load test
+
+```bash
+make load-test
+```
+
+#### 7) Stop services
+
+```bash
+make down
 ```
 
 ### Create a transfer
@@ -88,7 +159,7 @@ Requirements: PHP 8.3+, Composer, MySQL 8, Redis 7.
 
 ```bash
 composer install
-cp .env .env.local   # adjust DATABASE_URL, REDIS_URL
+cp .env.dist .env.local   # adjust DATABASE_URL, REDIS_URL, API_KEYS
 php bin/console doctrine:migrations:migrate
 php bin/console app:seed-demo-accounts
 symfony server:start -d --port=8080   # or: php -S localhost:8080 -t public
