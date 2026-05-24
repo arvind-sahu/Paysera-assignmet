@@ -32,8 +32,12 @@ Production-oriented Symfony 7 API for transferring funds between accounts. Built
 ## Quick start (Docker)
 
 ```bash
+cd "c:\Users\ASUS\Desktop\Assignment\Paysera-assignmet"
 cp .env.dist .env
-make setup          # up + composer + migrate + seed
+docker compose -f docker-compose.yml up -d --build
+docker compose -f docker-compose.yml exec php composer install
+docker compose -f docker-compose.yml exec php php bin/console doctrine:migrations:migrate --no-interaction
+docker compose -f docker-compose.yml exec php php bin/console app:seed-demo-accounts
 curl http://localhost:8080/health
 ```
 
@@ -55,14 +59,15 @@ cp .env.dist .env
 #### 3) Start application stack
 
 ```bash
-make setup
+cd "c:\Users\ASUS\Desktop\Assignment\Paysera-assignmet"
+docker compose -f docker-compose.yml up -d --build
+docker compose -f docker-compose.yml exec php composer install
+docker compose -f docker-compose.yml exec php php bin/console doctrine:migrations:migrate --no-interaction
+docker compose -f docker-compose.yml exec php php bin/console app:seed-demo-accounts
 ```
 
-This runs:
-- `make up` (build + start php, mysql, redis)
-- `make install` (composer install in container)
-- `make migrate` (run DB migrations)
-- `make seed` (insert demo accounts)
+Equivalent `make` shortcut:
+- `make setup` (up + install + migrate + seed)
 
 #### 4) Verify health
 
@@ -75,10 +80,15 @@ Expected: HTTP `200` and DB/Redis status in response.
 #### 5) Run tests
 
 ```bash
-make test
-make test-unit
-make test-integration
+docker compose -f docker-compose.yml exec php composer test
+docker compose -f docker-compose.yml exec php composer test-unit
+docker compose -f docker-compose.yml exec php composer test-integration
 ```
+
+Equivalent `make` shortcut:
+- `make test`
+- `make test-unit`
+- `make test-integration`
 
 #### 6) Run load test
 
@@ -89,7 +99,7 @@ make load-test
 #### 7) Stop services
 
 ```bash
-make down
+docker compose -f docker-compose.yml down
 ```
 
 ### Create a transfer
