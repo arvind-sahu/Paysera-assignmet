@@ -39,11 +39,25 @@ final class TransferApiTest extends AbstractApiTestCase
             'toAccountId' => TestFixtures::BOB,
             'amount' => '999999.00',
             'currency' => 'EUR',
-        ]);
+        ], ['HTTP_IDEMPOTENCY_KEY' => 'insufficient-funds-001']);
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('INSUFFICIENT_FUNDS', $data['error']);
+    }
+
+    public function testMissingIdempotencyKeyReturns400(): void
+    {
+        $this->apiRequest('POST', '/api/v1/transfers', [
+            'fromAccountId' => TestFixtures::ALICE,
+            'toAccountId' => TestFixtures::BOB,
+            'amount' => '1.00',
+            'currency' => 'EUR',
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('missing_idempotency_key', $data['error']);
     }
 
     public function testIdempotentReplayDoesNotDoubleDebit(): void
@@ -75,6 +89,7 @@ final class TransferApiTest extends AbstractApiTestCase
     public function testUnauthorizedWithoutApiKey(): void
     {
         $this->client->request('POST', '/api/v1/transfers', [], [], [
+            'HTTP_IDEMPOTENCY_KEY' => 'auth-missing-key-001',
             'CONTENT_TYPE' => 'application/json',
         ], json_encode([
             'fromAccountId' => TestFixtures::ALICE,
@@ -84,5 +99,19 @@ final class TransferApiTest extends AbstractApiTestCase
         ], JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+    }
+
+    public function testInvalidIdempotencyHeaderFormatReturns400(): void
+    {
+        $this->apiRequest('POST', '/api/v1/transfers', [
+            'fromAccountId' => TestFixtures::ALICE,
+            'toAccountId' => TestFixtures::BOB,
+            'amount' => '1.00',
+            'currency' => 'EUR',
+        ], ['HTTP_IDEMPOTENCY_KEY' => '<invalid>']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        $data = json_decode($this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('invalid_idempotency_key', $data['error']);
     }
 }

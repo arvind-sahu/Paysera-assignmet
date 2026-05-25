@@ -20,7 +20,23 @@ when@prod:
     monolog:
         handlers:
             main:
+                type: stream
+                path: 'php://stdout'
                 level: info
+                formatter: monolog.formatter.json
+                channels: ['!event']
+            transfer:
+                type: stream
+                path: 'php://stdout'
+                level: info
+                formatter: monolog.formatter.json
+                channels: ['transfer']
+            errors:
+                type: stream
+                path: 'php://stderr'
+                level: error
+                formatter: monolog.formatter.json
+                channels: ['!event']
 
 when@test:
     monolog:

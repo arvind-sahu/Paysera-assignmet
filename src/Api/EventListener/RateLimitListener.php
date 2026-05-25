@@ -15,6 +15,7 @@ final class RateLimitListener implements EventSubscriberInterface
 {
     public function __construct(
         private readonly RateLimiterFactory $apiLimiter,
+        private readonly RateLimiterFactory $transferLimiter,
     ) {
     }
 
@@ -37,13 +38,19 @@ final class RateLimitListener implements EventSubscriberInterface
         $key = $request->headers->get('X-Api-Key') ?? $request->getClientIp() ?? 'anonymous';
 
         try {
-            $limiter = $this->apiLimiter->create($key);
+            $isTransferCreate = $request->isMethod('POST')
+                && ($request->getPathInfo() === '/api/v1/transfers' || $request->getPathInfo() === '/api/v2/transfers');
+
+            $limiterFactory = $isTransferCreate ? $this->transferLimiter : $this->apiLimiter;
+            $limiter = $limiterFactory->create($key);
             $limit = $limiter->consume(1);
 
             if (!$limit->isAccepted()) {
                 $event->setResponse(new JsonResponse([
                     'error' => 'rate_limit_exceeded',
-                    'message' => 'Too many requests. Please retry later.',
+                    'message' => $isTransferCreate
+                        ? 'Too many transactions. Limit is 120 per minute.'
+                        : 'Too many requests. Please retry later.',
                     'retry_after' => $limit->getRetryAfter()->getTimestamp(),
                 ], Response::HTTP_TOO_MANY_REQUESTS));
             }

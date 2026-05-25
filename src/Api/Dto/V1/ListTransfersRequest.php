@@ -9,6 +9,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class ListTransfersRequest
 {
     #[Assert\Uuid]
+    #[Assert\Length(max: 36)]
     public ?string $accountId = null;
 
     #[Assert\Choice(choices: ['pending', 'completed', 'failed'])]

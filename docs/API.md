@@ -35,11 +35,13 @@ Future resources (users, products, orders) follow the same versioned layout:
 }
 ```
 
-**Headers (optional but recommended)**
+**Headers (required)**
 
 ```
 Idempotency-Key: unique-client-key-min-8-chars
 ```
+
+`Idempotency-Key` must be 8-64 chars and match: letters, numbers, colon (`:`), underscore (`_`), or hyphen (`-`).
 
 **Response `201 Created`**
 
@@ -165,13 +167,17 @@ All v2 endpoints mirror v1 behavior but wrap responses:
 | HTTP | error | When |
 |------|-------|------|
 | 401 | authentication_failed | Missing/invalid API key |
+| 400 | missing_idempotency_key | Missing `Idempotency-Key` header on transfer create |
+| 400 | invalid_idempotency_key | `Idempotency-Key` length is outside 8..64 |
+| 400 | invalid_api_key_format | `X-Api-Key` contains invalid characters |
+| 415 | invalid_content_type | Transfer create request is not `application/json` |
 | 404 | ACCOUNT_NOT_FOUND | Unknown account UUID |
 | 404 | TRANSFER_NOT_FOUND | Unknown transfer reference |
 | 422 | INSUFFICIENT_FUNDS | Debit would overdraw |
 | 422 | SAME_ACCOUNT | from === to |
 | 422 | INVALID_STATUS | Invalid status filter |
 | 422 | validation_failed | Invalid payload |
-| 429 | rate_limit_exceeded | >120 requests/min per key |
+| 429 | rate_limit_exceeded | >120 transfer transactions/min per key |
 
 ---
 

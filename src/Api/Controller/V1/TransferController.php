@@ -37,12 +37,7 @@ final class TransferController extends AbstractController
         Request $request,
     ): JsonResponse {
         $idempotencyKey = $request->headers->get('Idempotency-Key');
-        if ($idempotencyKey !== null && (strlen($idempotencyKey) < 8 || strlen($idempotencyKey) > 64)) {
-            return $this->json([
-                'error' => 'invalid_idempotency_key',
-                'message' => 'Idempotency-Key must be between 8 and 64 characters.',
-            ], Response::HTTP_BAD_REQUEST);
-        }
+        assert($idempotencyKey !== null);
 
         $result = $this->handler->handle(new TransferFundsCommand(
             $payload->fromAccountId,

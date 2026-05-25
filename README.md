@@ -25,14 +25,73 @@ Production-oriented Symfony 7 API for transferring funds between accounts. Built
 |------|----------------|
 | Transfers | Atomic debit/credit with `SELECT … FOR UPDATE` (deadlock-safe ordering) |
 | Integrity | DB transactions, optimistic locking (`version` column), minor-unit money |
-| High load | Redis idempotency cache, balance read cache, API rate limiter (120/min) |
+| High load | Redis idempotency cache, balance read cache, transfer limiter (120 tx/min per key) |
 | Security | API key auth (`X-Api-Key`), input validation, structured logging |
-| Reliability | Idempotency-Key header (24h Redis + DB unique constraint) |
+| Reliability | Mandatory `Idempotency-Key` header (24h Redis + DB unique constraint) |
+
+## High-level architecture
+
+```mermaid
+flowchart TD
+    C[Client / Load Generator] --> N[Nginx or PHP HTTP Server]
+    N --> API[Symfony API Controllers]
+    API --> RL[Redis Rate Limiter]
+    API --> BUS[Application Layer / Message Bus Ready]
+    BUS --> H[TransferFundsHandler]
+    H --> IDEM[Redis Idempotency Store]
+    H --> DB[(MySQL 8)]
+    H --> CACHE[Redis Balance Cache]
+    DB --> ACC[accounts table]
+    DB --> TX[transfers table]
+    H --> LOG[Monolog Structured Logs]
+```
+
+### Request flow (transfer)
+
+1. Client calls `POST /api/v1/transfers` (or v2) with API key and mandatory `Idempotency-Key`.
+2. Controller validates payload, normalizes currency, and invokes application handler.
+3. Handler checks idempotency (Redis fast-path, DB unique key as durable guard).
+4. Handler opens one DB transaction, locks both accounts with `SELECT ... FOR UPDATE` in sorted order.
+5. Balance is validated under lock, then debit/credit are applied atomically.
+6. Transfer is persisted, account balance cache is invalidated, idempotency replay key is stored.
+7. Structured logs are emitted; API returns `201` for new transfer or `200` for replay.
+
+### Core components and responsibilities
+
+- **API layer (`src/Api`)**: versioned controllers, request DTO validation, HTTP contract.
+- **Application layer (`src/Application`)**: transfer use-case orchestration and business workflow.
+- **Domain layer (`src/Domain`)**: money/account/transfer invariants and core rules.
+- **Infrastructure layer (`src/Infrastructure`)**: Doctrine repositories, Redis adapters, auth, console commands.
+- **Data stores**: MySQL for source-of-truth state, Redis for rate limiting, idempotency acceleration, and cache.
+
+### Reliability and scaling design
+
+- Row-level pessimistic locking + deterministic lock order for concurrency safety.
+- Transactional debit/credit to guarantee no partial money movement.
+- Redis + DB idempotency strategy for safe retries.
+- Rate limiting to protect the API under burst load.
+- Message-bus-ready structure so async queue processing (for very high throughput) can be introduced with minimal API contract changes.
+
+### Centralized logging readiness
+
+- Structured transfer logs are emitted with contextual fields (`from`, `to`, `amount`, `currency`, `idempotency_key`).
+- Successful transfers are logged at `INFO`; failed attempts are logged at `ERROR`.
+- In production mode, Monolog outputs JSON logs to `stdout`/`stderr`, which can be shipped to ELK/Datadog by a container log agent.
+- See `docs/ARCHITECTURE.md` for the full central logging flow and deployment architecture.
+
+### Input validation and API hardening
+
+- Request body validation uses Symfony Validator DTO constraints (similar purpose to Zod schemas in Node.js).
+- Transfer-create requests apply centralized header/content-type validation (`RequestValidationListener`) for:
+  - required `Idempotency-Key`
+  - strict `X-Api-Key`/`Idempotency-Key` header format
+  - `Content-Type: application/json`
+- API responses are JSON-only and no untrusted input is rendered as HTML, reducing XSS risk at the API layer.
 
 ## Quick start (Docker)
 
 ```bash
-cd "c:\Users\ASUS\Desktop\Assignment\Paysera-assignmet"
+Naviagate to the root folder of this repo
 cp .env.dist .env
 docker compose -f docker-compose.yml up -d --build
 docker compose -f docker-compose.yml exec php composer install
@@ -59,11 +118,11 @@ cp .env.dist .env
 #### 3) Start application stack
 
 ```bash
-cd "c:\Users\ASUS\Desktop\Assignment\Paysera-assignmet"
-docker compose -f docker-compose.yml up -d --build
-docker compose -f docker-compose.yml exec php composer install
-docker compose -f docker-compose.yml exec php php bin/console doctrine:migrations:migrate --no-interaction
-docker compose -f docker-compose.yml exec php php bin/console app:seed-demo-accounts
+cd "c:\Users\ASUS\Desktop\Assignment\Paysera-assignmet" # move into project root
+docker compose -f docker-compose.yml up -d --build # build images and start containers
+docker compose -f docker-compose.yml exec php composer install # install PHP dependencies in php container
+docker compose -f docker-compose.yml exec php php bin/console doctrine:migrations:migrate --no-interaction # apply DB schema migrations
+docker compose -f docker-compose.yml exec php php bin/console app:seed-demo-accounts # insert demo accounts for testing
 ```
 
 Equivalent `make` shortcut:
@@ -141,7 +200,7 @@ curl -s -X POST http://localhost:8080/api/v1/transfers \
 | `GET` | `/api/v2/transfers/recent` | Recent transfers (v2 envelope) |
 | `GET` | `/api/v2/transfers/{reference}` | Transfer details (v2 envelope) |
 
-**Headers:** `X-Api-Key` (required on `/api`), `Idempotency-Key` (recommended on POST transfers).
+**Headers:** `X-Api-Key` (required on `/api`), `Idempotency-Key` (required on POST `/api/*/transfers`).
 
 See [docs/API.md](docs/API.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

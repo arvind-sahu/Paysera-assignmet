@@ -53,3 +53,8 @@ services:
     App\Api\EventListener\RateLimitListener:
         arguments:
             $apiLimiter: '@limiter.api'
+            $transferLimiter: '@limiter.transfer_transactions'
+
+    App\Infrastructure\Logging\RequestContextProcessor:
+        tags:
+            - { name: monolog.processor }

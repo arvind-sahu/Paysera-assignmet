@@ -10,13 +10,16 @@ final class CreateTransferRequest
 {
     #[Assert\NotBlank]
     #[Assert\Uuid]
+    #[Assert\Length(max: 36)]
     public ?string $fromAccountId = null;
 
     #[Assert\NotBlank]
     #[Assert\Uuid]
+    #[Assert\Length(max: 36)]
     public ?string $toAccountId = null;
 
     #[Assert\NotBlank]
+    #[Assert\Length(max: 32)]
     #[Assert\Regex(pattern: '/^\d+(\.\d{1,2})?$/', message: 'Amount must be a positive decimal with up to 2 fractional digits.')]
     public ?string $amount = null;
 
